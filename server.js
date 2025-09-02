@@ -72,27 +72,32 @@ mongoose.connection.on('error', (err) => {
 });
 
 // إعداد CORS للعمل مع Render
-const allowedOrigins = [
-  'http://localhost:5173',
-  'https://your-frontend-app.onrender.com', // اضف هنا رابط frontend
-  process.env.CLIENT_URL,
-  process.env.RENDER_EXTERNAL_URL?.replace(/\/$/, '')
-].filter(Boolean);
-
 app.use(cors({
   origin: function (origin, callback) {
-    // السماح للطلبات بدون origin
+    // قائمة النطاقات المسموحة
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'https://your-frontend-app.onrender.com',
+      'https://freelancing-app-nodejs.onrender.com',
+      process.env.CLIENT_URL,
+      process.env.RENDER_EXTERNAL_URL
+    ].filter(Boolean);
+    
+    // السماح للطلبات بدون origin (مثل curl)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) === -1) {
-      console.log('CORS blocked for origin:', origin);
-      return callback(new Error('Not allowed by CORS'), false);
+    // التحقق إذا كان النطاق مسموحاً
+    if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+      return callback(null, true);
     }
-    return callback(null, true);
+    
+    console.log('CORS blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'), false);
   },
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Cookie', 'Set-Cookie'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  exposedHeaders: ['Set-Cookie', 'Cookie']
 }));
 
 // Middleware الأساسي
@@ -129,36 +134,76 @@ app.get("/test", (req, res) => {
 // Validate token endpoint
 app.get("/api/auth/validate", (req, res) => {
   try {
-    const token = req.cookies?.accessToken || req.headers.authorization?.split(" ")[1];
+    console.log('=== /api/auth/validate called ===');
+    console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Request cookies:', req.cookies);
+    console.log('Request IP:', req.ip);
+    console.log('Request host:', req.get('host'));
+    console.log('Request origin:', req.get('origin'));
+    console.log('Request referer:', req.get('referer'));
 
-    if (!token) {
-      return res.status(401).json({ message: "You are not authenticated!" });
+    // طرق متعددة للحصول على التوكن
+    let token = req.cookies?.accessToken;
+    const authHeader = req.headers.authorization;
+    
+    console.log('Cookie token exists:', !!token);
+    console.log('Auth header exists:', !!authHeader);
+
+    if (!token && authHeader) {
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+        console.log('Extracted token from Bearer header');
+      } else {
+        token = authHeader;
+        console.log('Extracted token from plain auth header');
+      }
     }
 
+    if (!token) {
+      console.log('❌ No token found in request');
+      return res.status(401).json({ 
+        success: false,
+        message: "No authentication token found",
+        details: {
+          hasCookies: !!req.cookies,
+          hasAuthHeader: !!req.headers.authorization,
+          cookieKeys: req.cookies ? Object.keys(req.cookies) : []
+        }
+      });
+    }
+
+    console.log('Token found, verifying...');
+    
     jwt.verify(token, process.env.JWT_KEY, (err, payload) => {
       if (err) {
-        let errorMessage = "توكن غير صالح";
-
-        if (err.name === "TokenExpiredError") {
-          errorMessage = "انتهت صلاحية التوكن، يلزم تسجيل الدخول مجدداً";
-        } else if (err.name === "JsonWebTokenError") {
-          errorMessage = "توكن مصادقة غير صحيح";
-        }
-
-        return res.status(403).json({ message: errorMessage });
+        console.log('❌ Token verification failed:', err.message);
+        console.log('Token content (first 50 chars):', token.substring(0, 50) + '...');
+        
+        return res.status(403).json({ 
+          success: false,
+          message: "Token verification failed",
+          error: err.name,
+          expired: err.name === "TokenExpiredError"
+        });
       }
 
+      console.log('✅ Token validated successfully for user:', payload.id);
       return res.status(200).json({
+        success: true,
         valid: true,
         userId: payload.id,
         isSeller: payload.isSeller,
       });
     });
   } catch (err) {
-    return res.status(500).json({ message: "Internal server error" });
+    console.error('💥 Unexpected error in validate endpoint:', err);
+    return res.status(500).json({ 
+      success: false,
+      message: "Internal server error",
+      error: err.message 
+    });
   }
 });
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   const errorStatus = err.status || 500;

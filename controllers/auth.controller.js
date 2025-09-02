@@ -41,28 +41,24 @@ export const login = async (req, res, next) => {
     const token = jwt.sign(
       {
         id: user._id,
-        isSeller: user.isSeller,   // this is the payload that we put it in token
+        isSeller: user.isSeller,
       },
       process.env.JWT_KEY,
-      { expiresIn: '7d' }  // اذا سرق التوكن لن يكون صالح للابد
+      { expiresIn: '7d' }
     );
 
     const { password, ...info } = user._doc;
   
-    // res.cookie("accessToken", token, {
-    //     httpOnly: true,
-    //     sameSite: 'strict' // prevent send cookies from another site
-    //   })
-    //   .status(200)
-    //   .send(info);
-res.cookie("accessToken", token, {
-  httpOnly: true,
-  secure: true, // يجب أن يكون true في production
-  sameSite: "none", // مهم للعمل عبر نطاقات مختلفة
-  domain: process.env.COOKIE_DOMAIN || ".onrender.com",
-  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 يوم
-  path: "/",
-}).status(200).send(info);
+    // الإعدادات الصحيحة للكوكيز عبر النطاقات
+    res.cookie("accessToken", token, {
+      httpOnly: true,
+      secure: true, // مطلوب مع sameSite: "none"
+      sameSite: "none", // يسمح بالنطاقات المختلفة
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 يوم
+      path: "/",
+      // لا تستخدم domain property - دع المتصفح يتعامل معها تلقائياً
+    }).status(200).send(info);
+    
   } catch (err) {
     next(err);
   }
