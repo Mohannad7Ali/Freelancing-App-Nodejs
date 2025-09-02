@@ -74,24 +74,25 @@ mongoose.connection.on('error', (err) => {
 // إعداد CORS للعمل مع Render
 const allowedOrigins = [
   'http://localhost:5173',
+  'https://your-frontend-app.onrender.com', // اضف هنا رابط frontend
   process.env.CLIENT_URL,
   process.env.RENDER_EXTERNAL_URL?.replace(/\/$/, '')
 ].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // السماح لطلبات بدون origin (مثل Postman)
+    // السماح للطلبات بدون origin
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
-      return callback(new Error(msg), false);
+      console.log('CORS blocked for origin:', origin);
+      return callback(new Error('Not allowed by CORS'), false);
     }
     return callback(null, true);
   },
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH']
 }));
 
 // Middleware الأساسي

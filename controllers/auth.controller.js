@@ -48,12 +48,21 @@ export const login = async (req, res, next) => {
     );
 
     const { password, ...info } = user._doc;
-    res.cookie("accessToken", token, {
-        httpOnly: true,
-        sameSite: 'strict' // prevent send cookies from another site
-      })
-      .status(200)
-      .send(info);
+  
+    // res.cookie("accessToken", token, {
+    //     httpOnly: true,
+    //     sameSite: 'strict' // prevent send cookies from another site
+    //   })
+    //   .status(200)
+    //   .send(info);
+res.cookie("accessToken", token, {
+  httpOnly: true,
+  secure: true, // يجب أن يكون true في production
+  sameSite: "none", // مهم للعمل عبر نطاقات مختلفة
+  domain: process.env.COOKIE_DOMAIN || ".onrender.com",
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 يوم
+  path: "/",
+}).status(200).send(info);
   } catch (err) {
     next(err);
   }
