@@ -39,3 +39,22 @@ export const getUser = async (req, res, next) => {
   if(!user) return next(createError(404 , "user not found"));
   res.status(200).send(user);
 };
+
+export const searchUsers = async (req, res, next) => {
+  try {
+    const { username } = req.query;
+    
+    if (!username || username.trim() === '') {
+      return next(createError(400, "Username query parameter is required"));
+    }
+    
+    // Search for users with username containing the query string (case insensitive)
+    const users = await User.find({
+      username: { $regex: username, $options: 'i' }
+    }).select('-password');
+    
+    res.status(200).json(users);
+  } catch (err) {
+    next(err);
+  }
+};

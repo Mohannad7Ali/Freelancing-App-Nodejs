@@ -78,6 +78,8 @@ export const mobileLogin = async (req , res , next)=>{
       process.env.JWT_KEY,
       { expiresIn: '7d' } 
     );
+    console.log(token) ;
+    console.log(process.env.JWT_KEY) ;
     const {password , ...info} = user._doc ; 
     info.accessToken = token ; 
     res.status(200).json(info) ;

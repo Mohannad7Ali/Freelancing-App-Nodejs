@@ -9,13 +9,17 @@ export const verifyToken = (req, res, next) => {
 
 
   jwt.verify(token, process.env.JWT_KEY, async (err, payload) => {   // check token validity 
+  
     if (err) {
+        console.log(payload)
+          console.log(token)
       let errorMessage = "توكن غير صالح";
       
       if (err.name === "TokenExpiredError") {
         errorMessage = "انتهت صلاحية التوكن، يلزم تسجيل الدخول مجدداً";
       } else if (err.name === "JsonWebTokenError") {
         errorMessage = "توكن مصادقة غير صحيح";
+      
       }
       
       return next(createError(403, errorMessage));
