@@ -63,6 +63,33 @@ export const login = async (req, res, next) => {
     next(err);
   }
 };
+export const mobileRegister = async (req ,res , next) =>{
+    try {
+    const user = await User.findOne({ username: req.body.username });
+    if(user) return next(createError(400, "اسم المستخدم موجود بالفعل"));
+    const existingEmail = await User.findOne({ email: req.body.email });
+    if (existingEmail) {
+    return next(createError(400, "البريد الإلكتروني مسجل بالفعل"));
+    }
+    const hash = bcryptjs.hashSync(req.body.password, 5);
+    const newUser = new User({
+      ...req.body,
+      password: hash,
+    });
+    await newUser.save();
+      const token = jwt.sign(
+      {id:newUser._id , isSeller:newUser.isSeller},
+      process.env.JWT_KEY,
+      { expiresIn: '7d' } 
+    );
+
+    const {password , ...info} = newUser._doc ; 
+    info.accessToken = token ; 
+    res.status(200).json(info) ;
+  } catch (err) {
+    next(err);
+  }
+}
 export const mobileLogin = async (req , res , next)=>{
   try{
     if (!req.body.username || !req.body.password) {
